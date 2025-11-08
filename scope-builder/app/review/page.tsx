@@ -723,7 +723,7 @@ export default function ReviewPage() {
 
 interface SignatureModalProps {
   homeownerName: string;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onSave: (signatureImage: string) => void;
   onCancel: () => void;
 }
