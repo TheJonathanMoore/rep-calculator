@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const tempDir = path.join(process.cwd(), 'tmp-pdfs');
     try {
       await fs.mkdir(tempDir, { recursive: true });
-    } catch (_err) {
+    } catch {
       // Directory might already exist
     }
 

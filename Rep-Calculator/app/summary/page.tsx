@@ -80,7 +80,6 @@ export default function SummaryPage() {
   // Generate AI summaries
   const generateSummaries = async (tradesData: Trade[]) => {
     try {
-      setSummaryLoading(true);
       const response = await fetch('/api/generate-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -96,8 +95,6 @@ export default function SummaryPage() {
       }
     } catch (error) {
       console.error('Error generating summaries:', error);
-    } finally {
-      setSummaryLoading(false);
     }
   };
 
