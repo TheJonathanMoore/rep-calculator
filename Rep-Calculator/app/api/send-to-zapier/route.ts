@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
 
     const fileBuffer = await fs.readFile(filepath);
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(fileBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${safeFilename}"`,
