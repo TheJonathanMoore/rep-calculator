@@ -1,5 +1,0 @@
-{
-  "root": "Rep-Calculator",
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev"
-}
