@@ -789,9 +789,6 @@ export default function SummaryPage() {
                               <div className="flex justify-between items-center p-3 border rounded-lg">
                                 <div>
                                   <p className="font-semibold">Due Today</p>
-                                  <p className="text-xs text-gray-600">
-                                    {totalAcv < (totalRcv * 0.5) ? 'ACV + Deductible' : '50% of RCV'}
-                                  </p>
                                 </div>
                                 <span className="font-mono font-bold">${dueToday.toLocaleString()}</span>
                               </div>
