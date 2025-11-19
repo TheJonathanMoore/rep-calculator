@@ -279,7 +279,10 @@ export default function SummaryPage() {
         align: 'left',
       });
 
-      pdfDoc.save('scope-summary.pdf');
+      const filename = customer?.displayName
+        ? `scope-summary-${customer.displayName.replace(/\s+/g, '-').toLowerCase()}.pdf`
+        : 'scope-summary.pdf';
+      pdfDoc.save(filename);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF');
