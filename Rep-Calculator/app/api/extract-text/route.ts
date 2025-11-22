@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as pdfjs from 'pdfjs-dist';
-
-// Set up the worker for pdfjs
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface ExtractionRequest {
   file: string; // base64 encoded file
@@ -59,6 +55,12 @@ async function extractTextFromPDF(
   buffer: Buffer
 ): Promise<string> {
   try {
+    // Dynamically import pdfjs to avoid DOMMatrix issues at build time
+    const pdfjs = await import('pdfjs-dist');
+
+    // Set up the worker for pdfjs
+    pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
     // Extract text from PDF using pdfjs
     const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
     let fullText = '';
