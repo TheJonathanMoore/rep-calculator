@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { writeFile } from 'fs/promises';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,44 +21,16 @@ export async function POST(request: NextRequest) {
 
     console.log('Base64 string length after cleanup:', base64String?.length);
 
-    // Create temp directory if it doesn't exist
-    const tempDir = path.join(process.cwd(), 'tmp-pdfs');
-    try {
-      await fs.mkdir(tempDir, { recursive: true });
-    } catch {
-      console.log('Temp directory already exists or could not create');
-    }
-
-    // Save the PDF file temporarily
-    const timestamp = Date.now();
-    const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const filepath = path.join(tempDir, `${timestamp}_${safeFilename}`);
-
-    // Decode base64 to binary
-    const binaryBuffer = Buffer.from(base64String, 'base64');
-    await writeFile(filepath, binaryBuffer);
-
-    console.log('PDF saved to:', filepath);
-
-    // Create a public URL for the file - use environment variable for app URL
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const fileUrl = `${appUrl}/api/send-to-zapier/get-pdf/${timestamp}/${safeFilename}`;
-
     // Prepare payload for Zapier
-    // Send the file URL approach - Zapier's JobNimbus integration can download from URL
-    // This is better than base64 because:
-    // 1. URLs can be re-accessed if needed
-    // 2. File size is not limited by request size
-    // 3. More secure - file stays on our server
+    // Vercel's serverless environment is read-only, so we can't write files to disk
+    // Instead, we send the base64 directly to Zapier for JobNimbus attachment
+    // Zapier will handle decoding and attaching the file to JobNimbus
     const zapierPayload = {
-      file_url: fileUrl,
+      file: base64String,
       filename,
       related_id,
       attachment_type,
       description,
-      // Include base64 as a backup in case the Zapier zap is configured to use it
-      // Some older Zapier workflows expect the 'file' field with base64 data
-      file: base64String,
     };
 
     // Forward to Zapier webhook
@@ -73,11 +42,9 @@ export async function POST(request: NextRequest) {
     console.log('Webhook URL:', zapierWebhookUrl);
     console.log('Filename:', filename);
     console.log('Related ID (JNID):', related_id);
-    console.log('File URL:', fileUrl);
-    console.log('File exists check - saved to:', filepath);
     console.log('Attachment Type:', attachment_type);
     console.log('Description:', description);
-    console.log('Full Zapier payload:', JSON.stringify(zapierPayload, null, 2));
+    console.log('Base64 file size:', base64String.length, 'characters');
     console.log('=====================================');
 
     const response = await fetch(zapierWebhookUrl, {
@@ -106,49 +73,12 @@ export async function POST(request: NextRequest) {
       message: 'Document sent to JobNimbus via Zapier',
       filename,
       related_id,
-      file_url: fileUrl,
     });
   } catch (error) {
     console.error('Error sending to Zapier:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to send to Zapier' },
       { status: 500 }
-    );
-  }
-}
-
-// GET endpoint to serve the PDF
-export async function GET(request: NextRequest) {
-  try {
-    const pathname = request.nextUrl.pathname;
-    const parts = pathname.split('/api/send-to-zapier/get-pdf/')[1].split('/');
-    const timestamp = parts[0];
-    const safeFilename = parts.slice(1).join('/');
-
-    const tempDir = path.join(process.cwd(), 'tmp-pdfs');
-    const filepath = path.join(tempDir, `${timestamp}_${safeFilename}`);
-
-    // Security: Ensure the file path is within the temp directory
-    if (!filepath.startsWith(tempDir)) {
-      return NextResponse.json(
-        { error: 'Invalid file path' },
-        { status: 403 }
-      );
-    }
-
-    const fileBuffer = await fs.readFile(filepath);
-
-    return new NextResponse(new Uint8Array(fileBuffer), {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${safeFilename}"`,
-      },
-    });
-  } catch (error) {
-    console.error('Error retrieving PDF:', error);
-    return NextResponse.json(
-      { error: 'PDF not found' },
-      { status: 404 }
     );
   }
 }
