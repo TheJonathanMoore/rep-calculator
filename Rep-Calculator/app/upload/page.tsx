@@ -110,13 +110,6 @@ export default function UploadPage() {
 
   const extractTextFromPDF = async (fileToProcess: File): Promise<string> => {
     try {
-      // Import pdfjs dynamically
-      const pdfjsLib = await import('pdfjs-dist');
-      const pdfjs = pdfjsLib.default || pdfjsLib;
-
-      // Set up worker
-      pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-
       setExtractionStatus('Loading PDF...');
 
       // Read file as ArrayBuffer
@@ -129,6 +122,15 @@ export default function UploadPage() {
 
       setExtractionStatus('Extracting text from PDF...');
 
+      // Use pdfjs dynamically to avoid build-time issues
+      const pdfjsLib = await import('pdfjs-dist');
+      const pdfjs = pdfjsLib;
+
+      // Set up worker with proper CDN path
+      if (pdfjs.GlobalWorkerOptions) {
+        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+      }
+
       // Load PDF document
       const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
       let fullText = '';
@@ -139,7 +141,12 @@ export default function UploadPage() {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         const pageText = textContent.items
-          .map((item: any) => (item.str || ''))
+          .map((item: any) => {
+            if (typeof item === 'object' && 'str' in item) {
+              return item.str || '';
+            }
+            return '';
+          })
           .join(' ');
         fullText += pageText + '\n';
 
@@ -155,12 +162,7 @@ export default function UploadPage() {
       }
 
       // If mostly images (scanned PDF), fall back to OCR
-      if (hasImages && fullText.trim().length < 100) {
-        setExtractionStatus('PDF is scanned. Switching to OCR...');
-        return await extractTextFromImage(fileToProcess);
-      }
-
-      if (!fullText.trim()) {
+      if ((hasImages && fullText.trim().length < 100) || !fullText.trim()) {
         setExtractionStatus('PDF is scanned. Switching to OCR...');
         return await extractTextFromImage(fileToProcess);
       }
@@ -168,13 +170,23 @@ export default function UploadPage() {
       return fullText;
     } catch (err) {
       console.error('PDF extraction failed:', err);
-      // Fall back to OCR for any errors
-      setExtractionStatus('PDF extraction failed. Switching to OCR...');
-      return await extractTextFromImage(fileToProcess);
+      // Fall back to OCR - convert PDF to image first via canvas
+      setExtractionStatus('Using OCR to extract text from PDF...');
+      try {
+        return await extractTextFromImage(fileToProcess);
+      } catch (ocrErr) {
+        console.error('OCR also failed:', ocrErr);
+        throw new Error('Unable to extract text from PDF. Please try a different file or use Paste Text mode.');
+      }
     }
   };
 
   const extractTextFromImage = async (fileToProcess: File): Promise<string> => {
+    // Check if this is a PDF file - OCR can't process PDFs directly
+    if (fileToProcess.name.toLowerCase().endsWith('.pdf') || fileToProcess.type === 'application/pdf') {
+      throw new Error('OCR cannot process PDF files directly. Please use Paste Text mode to enter the text manually or try converting the PDF to an image first.');
+    }
+
     // Import Tesseract dynamically (client-side only)
     // @ts-ignore - dynamic import
     const Tesseract = (await import('tesseract.js')).default;
