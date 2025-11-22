@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface LineItem {
   id: string;
@@ -160,129 +161,43 @@ export default function SummaryPage() {
     if (!printableRef.current) return;
 
     try {
-      // Generate plain-text PDF (same approach as send to JobNimbus)
-      const pdfDoc = new jsPDF({
+      // Use html2canvas to capture the styled HTML as an image
+      const canvas = await html2canvas(printableRef.current, {
+        allowTaint: true,
+        useCORS: true,
+        scale: 2,
+        logging: false,
+      });
+
+      // Create PDF from the canvas
+      const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
 
-      // Extract text content and create a simple PDF
-      const pageHeight = pdfDoc.internal.pageSize.getHeight();
-      const pageWidth = pdfDoc.internal.pageSize.getWidth();
-      const margin = 10;
-      const maxWidth = pageWidth - 2 * margin;
-      let yPosition = margin;
-      const lineHeight = 5;
+      const imgData = canvas.toDataURL('image/png');
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const pageWidth = pdf.internal.pageSize.getWidth();
 
-      pdfDoc.setFontSize(16);
-      pdfDoc.text('Scope of Work Summary', margin, yPosition);
-      yPosition += 10;
+      // Calculate image height to fit page width while maintaining aspect ratio
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+      let yPosition = 0;
 
-      pdfDoc.setFontSize(10);
+      // Add image to PDF, handling multiple pages if needed
+      while (yPosition < canvas.height) {
+        pdf.addImage(imgData, 'PNG', 0, yPosition > 0 ? -yPosition / (canvas.height / imgHeight) : 0, pageWidth, imgHeight);
+        yPosition += pageHeight * (canvas.height / imgHeight);
 
-      // Add summary info
-      if (rep) {
-        pdfDoc.text(`Rep: ${rep}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      if (claimNumber) {
-        pdfDoc.text(`Claim #: ${claimNumber}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      if (claimAdjuster.name) {
-        pdfDoc.text(`Adjuster: ${claimAdjuster.name}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-
-      yPosition += 5;
-      pdfDoc.setFontSize(12);
-      pdfDoc.text('Work Performing', margin, yPosition);
-      yPosition += 5;
-      pdfDoc.setFontSize(10);
-
-      if (workDoingSummary) {
-        const splitText = pdfDoc.splitTextToSize(workDoingSummary, maxWidth);
-        pdfDoc.text(splitText, margin, yPosition);
-        yPosition += splitText.length * lineHeight + 3;
-      }
-
-      yPosition += 5;
-      pdfDoc.setFontSize(12);
-      pdfDoc.text('Work Not Included', margin, yPosition);
-      yPosition += 5;
-      pdfDoc.setFontSize(10);
-
-      if (workNotDoing) {
-        const splitText = pdfDoc.splitTextToSize(workNotDoing, maxWidth);
-        pdfDoc.text(splitText, margin, yPosition);
-        yPosition += splitText.length * lineHeight + 3;
-      }
-
-      yPosition += 5;
-      pdfDoc.setFontSize(12);
-      pdfDoc.text('Financial Summary', margin, yPosition);
-      yPosition += 5;
-      pdfDoc.setFontSize(10);
-      pdfDoc.text(`Total RCV: $${totalRcv.toLocaleString()}`, margin, yPosition);
-      yPosition += lineHeight;
-      if (totalAcv > 0) {
-        pdfDoc.text(`Total ACV: $${totalAcv.toLocaleString()}`, margin, yPosition);
-        yPosition += lineHeight;
-        pdfDoc.text(`Depreciation: $${(totalRcv - totalAcv).toLocaleString()}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      pdfDoc.text(`Deductible: $${deductible.toLocaleString()}`, margin, yPosition);
-      yPosition += lineHeight;
-
-      // Add scope items
-      yPosition += 5;
-      pdfDoc.setFontSize(12);
-      pdfDoc.text('Scope of Work', margin, yPosition);
-      yPosition += 5;
-      pdfDoc.setFontSize(9);
-
-      for (const trade of trades) {
-        const hasCheckedItems = trade.lineItems.some((item) => item.checked);
-        const hasSupplements = trade.supplements.length > 0;
-
-        if (!hasCheckedItems && !hasSupplements) continue;
-
-        if (yPosition > pageHeight - 20) {
-          pdfDoc.addPage();
-          yPosition = margin;
+        if (yPosition < canvas.height) {
+          pdf.addPage();
         }
-
-        pdfDoc.text(`${trade.name} - Total Insurance Coverage: $${tradeTotals[trade.name]?.rcv || 0}`, margin, yPosition);
-        yPosition += lineHeight;
-
-        for (const item of trade.lineItems) {
-          if (item.checked) {
-            const itemText = `  • ${item.quantity} ${item.description} - $${item.rcv}`;
-            const splitText = pdfDoc.splitTextToSize(itemText, maxWidth - 5);
-            pdfDoc.text(splitText, margin + 2, yPosition);
-            yPosition += splitText.length * (lineHeight - 1);
-          }
-        }
-
-        for (const supp of trade.supplements) {
-          const suppText = `  Supplement: ${supp.title} - $${supp.amount}`;
-          pdfDoc.text(suppText, margin + 2, yPosition);
-          yPosition += lineHeight;
-        }
-
-        yPosition += 3;
       }
-
-      pdfDoc.setFontSize(8);
-      pdfDoc.text(`Generated: ${new Date().toLocaleDateString()}`, margin, pageHeight - 5, {
-        align: 'left',
-      });
 
       const filename = customer?.displayName
         ? `scope-summary-${customer.displayName.replace(/\s+/g, '-').toLowerCase()}.pdf`
         : 'scope-summary.pdf';
-      pdfDoc.save(filename);
+      pdf.save(filename);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF');
@@ -309,132 +224,43 @@ export default function SummaryPage() {
     setSendingError('');
 
     try {
-      // Generate PDF with oklch color workaround
-      // The issue is that Tailwind v4 uses oklch() colors which html2canvas doesn't support
-      // We'll disable the Tailwind theme temporarily while generating the canvas
-
       const printElement = printableRef.current;
       if (!printElement) throw new Error('Unable to find printable element');
 
-      // Generate plain-text PDF as fallback since html2canvas has issues with oklch colors
+      setSendingError('');
+
+      // Use html2canvas to capture the styled HTML as an image
+      const canvas = await html2canvas(printElement, {
+        allowTaint: true,
+        useCORS: true,
+        scale: 2,
+        logging: false,
+      });
+
+      // Create PDF from the canvas
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
 
-      // Extract text content and create a simple PDF
+      const imgData = canvas.toDataURL('image/png');
       const pageHeight = pdf.internal.pageSize.getHeight();
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 10;
-      const maxWidth = pageWidth - 2 * margin;
-      let yPosition = margin;
-      const lineHeight = 5;
 
-      pdf.setFontSize(16);
-      pdf.text('Scope of Work Summary', margin, yPosition);
-      yPosition += 10;
+      // Calculate image height to fit page width while maintaining aspect ratio
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+      let yPosition = 0;
 
-      pdf.setFontSize(10);
+      // Add image to PDF, handling multiple pages if needed
+      while (yPosition < canvas.height) {
+        pdf.addImage(imgData, 'PNG', 0, yPosition > 0 ? -yPosition / (canvas.height / imgHeight) : 0, pageWidth, imgHeight);
+        yPosition += pageHeight * (canvas.height / imgHeight);
 
-      // Add summary info
-      if (rep) {
-        pdf.text(`Rep: ${rep}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      if (claimNumber) {
-        pdf.text(`Claim #: ${claimNumber}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      if (claimAdjuster.name) {
-        pdf.text(`Adjuster: ${claimAdjuster.name}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-
-      yPosition += 5;
-      pdf.setFontSize(12);
-      pdf.text('Work Performing', margin, yPosition);
-      yPosition += 5;
-      pdf.setFontSize(10);
-
-      if (workDoingSummary) {
-        const splitText = pdf.splitTextToSize(workDoingSummary, maxWidth);
-        pdf.text(splitText, margin, yPosition);
-        yPosition += splitText.length * lineHeight + 3;
-      }
-
-      yPosition += 5;
-      pdf.setFontSize(12);
-      pdf.text('Work Not Included', margin, yPosition);
-      yPosition += 5;
-      pdf.setFontSize(10);
-
-      if (workNotDoing) {
-        const splitText = pdf.splitTextToSize(workNotDoing, maxWidth);
-        pdf.text(splitText, margin, yPosition);
-        yPosition += splitText.length * lineHeight + 3;
-      }
-
-      yPosition += 5;
-      pdf.setFontSize(12);
-      pdf.text('Financial Summary', margin, yPosition);
-      yPosition += 5;
-      pdf.setFontSize(10);
-      pdf.text(`Total RCV: $${totalRcv.toLocaleString()}`, margin, yPosition);
-      yPosition += lineHeight;
-      if (totalAcv > 0) {
-        pdf.text(`Total ACV: $${totalAcv.toLocaleString()}`, margin, yPosition);
-        yPosition += lineHeight;
-        pdf.text(`Depreciation: $${(totalRcv - totalAcv).toLocaleString()}`, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      pdf.text(`Deductible: $${deductible.toLocaleString()}`, margin, yPosition);
-      yPosition += lineHeight;
-
-      // Add scope items
-      yPosition += 5;
-      pdf.setFontSize(12);
-      pdf.text('Scope of Work', margin, yPosition);
-      yPosition += 5;
-      pdf.setFontSize(9);
-
-      for (const trade of trades) {
-        const hasCheckedItems = trade.lineItems.some((item) => item.checked);
-        const hasSupplements = trade.supplements.length > 0;
-
-        if (!hasCheckedItems && !hasSupplements) continue;
-
-        if (yPosition > pageHeight - 20) {
+        if (yPosition < canvas.height) {
           pdf.addPage();
-          yPosition = margin;
         }
-
-        pdf.text(`${trade.name} - Total Insurance Coverage: $${tradeTotals[trade.name]?.rcv || 0}`, margin, yPosition);
-        yPosition += lineHeight;
-
-        for (const item of trade.lineItems) {
-          if (item.checked) {
-            const itemText = `  • ${item.quantity} ${item.description} - $${item.rcv}`;
-            const splitText = pdf.splitTextToSize(itemText, maxWidth - 5);
-            pdf.text(splitText, margin + 2, yPosition);
-            yPosition += splitText.length * (lineHeight - 1);
-          }
-        }
-
-        for (const supp of trade.supplements) {
-          const suppText = `  Supplement: ${supp.title} - $${supp.amount}`;
-          pdf.text(suppText, margin + 2, yPosition);
-          yPosition += lineHeight;
-        }
-
-        yPosition += 3;
       }
-
-      pdf.setFontSize(8);
-      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, pageHeight - 5, {
-        align: 'left',
-      });
-      pdf.setFontSize(12);
 
       // Convert PDF to blob
       const pdfBlob = pdf.output('blob');
@@ -447,7 +273,7 @@ export default function SummaryPage() {
       formData.append('description', 'Scope of Work Summary - Generated from Rep Calculator');
       formData.append('filename', 'Scope Summary.pdf');
 
-      console.log('Sending PDF directly to Zapier webhook');
+      console.log('Sending styled PDF to Zapier webhook');
 
       // Send directly to Zapier webhook as FormData
       const zapierWebhookUrl = 'https://hooks.zapier.com/hooks/catch/24628620/u8ekbpf/';
