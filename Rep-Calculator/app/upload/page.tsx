@@ -214,30 +214,6 @@ export default function UploadPage() {
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-2xl mx-auto">
         <header className="mb-8 text-center">
-          <div className="mb-4 flex justify-center">
-            <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              {/* Calculator Icon */}
-              <rect x="15" y="10" width="70" height="80" rx="4" fill="none" stroke="#1a3a52" strokeWidth="2"/>
-              {/* Display */}
-              <rect x="20" y="15" width="60" height="20" rx="2" fill="#1a3a52" opacity="0.1"/>
-              {/* Button Grid */}
-              {/* Row 1 */}
-              <rect x="20" y="40" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="35" y="40" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="50" y="40" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="65" y="40" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              {/* Row 2 */}
-              <rect x="20" y="54" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="35" y="54" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="50" y="54" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="65" y="54" width="12" height="10" rx="1" fill="#1a3a52" opacity="0.3"/>
-              {/* Row 3 */}
-              <rect x="20" y="68" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="35" y="68" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="50" y="68" width="12" height="10" rx="1" fill="none" stroke="#1a3a52" strokeWidth="1.5"/>
-              <rect x="65" y="68" width="12" height="10" rx="1" fill="#1a3a52" opacity="0.3"/>
-            </svg>
-          </div>
           <h1 className="text-4xl font-bold tracking-tight mb-2">
             Rep Calculator
           </h1>
