@@ -35,7 +35,7 @@ export default function UploadPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
+    if (selectedFile && (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf'))) {
       setFile(selectedFile);
       setError('');
     } else {
@@ -88,14 +88,14 @@ export default function UploadPage() {
 
   const extractTextFromFile = async (fileToProcess: File): Promise<string> => {
     setExtracting(true);
-    setExtractionStatus('Extracting text from document...');
+    setExtractionStatus('Processing file...');
 
     try {
       const isPDF = fileToProcess.type === 'application/pdf' || fileToProcess.name.toLowerCase().endsWith('.pdf');
 
       if (isPDF) {
-        // For PDFs, use server-side extraction
-        return await extractTextFromPDF(fileToProcess);
+        // PDFs require manual text entry via Paste Text mode for best results
+        throw new Error('PDF extraction requires switching to Paste Text mode. Please copy and paste the insurance document text instead.');
       } else {
         // For images, use client-side OCR
         return await extractTextFromImage(fileToProcess);
@@ -105,79 +105,6 @@ export default function UploadPage() {
       throw err;
     } finally {
       setExtracting(false);
-    }
-  };
-
-  const extractTextFromPDF = async (fileToProcess: File): Promise<string> => {
-    try {
-      setExtractionStatus('Loading PDF...');
-
-      // Read file as ArrayBuffer
-      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(fileToProcess);
-      });
-
-      setExtractionStatus('Extracting text from PDF...');
-
-      // Use pdfjs dynamically to avoid build-time issues
-      const pdfjsLib = await import('pdfjs-dist');
-      const pdfjs = pdfjsLib;
-
-      // Set up worker with proper CDN path
-      if (pdfjs.GlobalWorkerOptions) {
-        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
-      }
-
-      // Load PDF document
-      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-      let fullText = '';
-      let hasImages = false;
-
-      // Extract text from each page
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => {
-            if (typeof item === 'object' && 'str' in item) {
-              return item.str || '';
-            }
-            return '';
-          })
-          .join(' ');
-        fullText += pageText + '\n';
-
-        // Check for images (scanned document indicator)
-        try {
-          const operatorList = await page.getOperatorList();
-          if (pdfjs.OPS && operatorList.fnArray.includes(pdfjs.OPS.paintInlineImageXObject)) {
-            hasImages = true;
-          }
-        } catch {
-          // Skip if check fails
-        }
-      }
-
-      // If mostly images (scanned PDF), fall back to OCR
-      if ((hasImages && fullText.trim().length < 100) || !fullText.trim()) {
-        setExtractionStatus('PDF is scanned. Switching to OCR...');
-        return await extractTextFromImage(fileToProcess);
-      }
-
-      return fullText;
-    } catch (err) {
-      console.error('PDF extraction failed:', err);
-      // Fall back to OCR - convert PDF to image first via canvas
-      setExtractionStatus('Using OCR to extract text from PDF...');
-      try {
-        return await extractTextFromImage(fileToProcess);
-      } catch (ocrErr) {
-        console.error('OCR also failed:', ocrErr);
-        throw new Error('Unable to extract text from PDF. Please try a different file or use Paste Text mode.');
-      }
     }
   };
 
