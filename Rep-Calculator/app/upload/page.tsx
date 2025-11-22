@@ -111,16 +111,14 @@ export default function UploadPage() {
   const extractTextFromPDF = async (fileToProcess: File): Promise<string> => {
     // Read file as base64
     const reader = new FileReader();
-    const base64Promise = new Promise<string>((resolve, reject) => {
+    const base64File = await new Promise<string>((resolve, reject) => {
       reader.onload = () => {
         const result = reader.result as string;
         resolve(result);
       };
       reader.onerror = reject;
+      reader.readAsDataURL(fileToProcess);
     });
-
-    reader.readAsDataURL(fileToProcess);
-    const base64File = await base64Promise;
 
     // Call extraction API
     const extractResponse = await fetch('/api/extract-text', {
@@ -135,11 +133,26 @@ export default function UploadPage() {
     });
 
     if (!extractResponse.ok) {
-      const errorData = await extractResponse.json();
-      throw new Error(errorData.error || 'Failed to extract text from PDF');
+      let errorMessage = 'Failed to extract text from PDF';
+      try {
+        const errorData = await extractResponse.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        const errorText = await extractResponse.text();
+        console.error('Extraction API error response:', errorText);
+        errorMessage = `Server error (${extractResponse.status}): ${errorText.substring(0, 100)}`;
+      }
+      throw new Error(errorMessage);
     }
 
-    const extractedData = await extractResponse.json();
+    let extractedData;
+    try {
+      extractedData = await extractResponse.json();
+    } catch (e) {
+      const text = await extractResponse.text();
+      console.error('Failed to parse extraction response:', text.substring(0, 500));
+      throw new Error('Invalid response from extraction API');
+    }
 
     if (!extractedData.success && extractedData.requiresOCR) {
       // Scanned PDF - switch to OCR
@@ -169,9 +182,8 @@ export default function UploadPage() {
         resolve(result);
       };
       reader.onerror = reject;
+      reader.readAsDataURL(fileToProcess);
     });
-
-    reader.readAsDataURL(fileToProcess);
 
     // Create Tesseract worker
     const worker = await Tesseract.createWorker('eng', 1);
