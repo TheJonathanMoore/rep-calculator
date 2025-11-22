@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 interface LineItem {
   id: string;
@@ -157,98 +156,33 @@ export default function SummaryPage() {
     window.print();
   };
 
-  // Helper function to convert oklch colors to RGB-compatible format on element
-  const convertOklchToRgbInPlace = (element: HTMLElement) => {
-    const computedStyle = window.getComputedStyle(element);
-    const styles = computedStyle.cssText;
-
-    // Replace oklch colors with computed RGB values
-    if (styles.includes('oklch')) {
-      const bgColor = computedStyle.backgroundColor;
-      const textColor = computedStyle.color;
-      const borderColor = computedStyle.borderColor;
-
-      // Apply computed colors directly
-      if (bgColor) element.style.backgroundColor = bgColor;
-      if (textColor) element.style.color = textColor;
-      if (borderColor) element.style.borderColor = borderColor;
-    }
-
-    // Recursively process all children
-    Array.from(element.children).forEach((child) => {
-      convertOklchToRgbInPlace(child as HTMLElement);
-    });
-  };
-
-  // Helper to save and restore inline styles
-  const saveStyles = (element: HTMLElement): Map<HTMLElement, string> => {
-    const styles = new Map<HTMLElement, string>();
-    const walk = (el: HTMLElement) => {
-      styles.set(el, el.getAttribute('style') || '');
-      Array.from(el.children).forEach((child) => walk(child as HTMLElement));
-    };
-    walk(element);
-    return styles;
-  };
-
-  const restoreStyles = (element: HTMLElement, styles: Map<HTMLElement, string>) => {
-    const walk = (el: HTMLElement) => {
-      const savedStyle = styles.get(el);
-      if (savedStyle === '') {
-        el.removeAttribute('style');
-      } else {
-        el.setAttribute('style', savedStyle || '');
-      }
-      Array.from(el.children).forEach((child) => walk(child as HTMLElement));
-    };
-    walk(element);
-  };
-
   const handleDownloadPDF = async () => {
     if (!printableRef.current) return;
 
     try {
-      // Save original inline styles
-      const savedStyles = saveStyles(printableRef.current);
-
-      // Convert oklch colors to RGB-compatible format
-      convertOklchToRgbInPlace(printableRef.current);
-
-      // Use html2canvas to capture the styled HTML as an image
-      const canvas = await html2canvas(printableRef.current, {
-        allowTaint: true,
-        useCORS: true,
-        scale: 2,
-        logging: false,
-      });
-
-      // Restore original styles
-      restoreStyles(printableRef.current, savedStyles);
-
-      // Create PDF from the canvas
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
 
-      const imgData = canvas.toDataURL('image/png');
-      const pageHeight = pdf.internal.pageSize.getHeight();
       const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 5;
 
-      // Calculate image height to fit page width while maintaining aspect ratio
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
-      let yPosition = 0;
-
-      // Add image to PDF, handling multiple pages if needed
-      while (yPosition < canvas.height) {
-        pdf.addImage(imgData, 'PNG', 0, yPosition > 0 ? -yPosition / (canvas.height / imgHeight) : 0, pageWidth, imgHeight);
-        yPosition += pageHeight * (canvas.height / imgHeight);
-
-        if (yPosition < canvas.height) {
-          pdf.addPage();
-        }
-      }
+      // Use jsPDF's html method to convert HTML to PDF
+      await pdf.html(printableRef.current, {
+        margin: margin,
+        x: margin,
+        y: margin,
+        width: pageWidth - 2 * margin,
+        windowHeight: printableRef.current.scrollHeight,
+        html2canvas: {
+          allowTaint: true,
+          useCORS: true,
+          scale: 2,
+        },
+      });
 
       const filename = customer?.displayName
         ? `scope-summary-${customer.displayName.replace(/\s+/g, '-').toLowerCase()}.pdf`
@@ -285,47 +219,29 @@ export default function SummaryPage() {
 
       setSendingError('');
 
-      // Save original inline styles
-      const savedStyles = saveStyles(printElement);
-
-      // Convert oklch colors to RGB-compatible format
-      convertOklchToRgbInPlace(printElement);
-
-      // Use html2canvas to capture the styled HTML as an image
-      const canvas = await html2canvas(printElement, {
-        allowTaint: true,
-        useCORS: true,
-        scale: 2,
-        logging: false,
-      });
-
-      // Restore original styles
-      restoreStyles(printElement, savedStyles);
-
-      // Create PDF from the canvas
+      // Create PDF using jsPDF's html method
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
 
-      const imgData = canvas.toDataURL('image/png');
-      const pageHeight = pdf.internal.pageSize.getHeight();
       const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 5;
 
-      // Calculate image height to fit page width while maintaining aspect ratio
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
-      let yPosition = 0;
-
-      // Add image to PDF, handling multiple pages if needed
-      while (yPosition < canvas.height) {
-        pdf.addImage(imgData, 'PNG', 0, yPosition > 0 ? -yPosition / (canvas.height / imgHeight) : 0, pageWidth, imgHeight);
-        yPosition += pageHeight * (canvas.height / imgHeight);
-
-        if (yPosition < canvas.height) {
-          pdf.addPage();
-        }
-      }
+      // Use jsPDF's html method to convert HTML to PDF
+      await pdf.html(printElement, {
+        margin: margin,
+        x: margin,
+        y: margin,
+        width: pageWidth - 2 * margin,
+        windowHeight: printElement.scrollHeight,
+        html2canvas: {
+          allowTaint: true,
+          useCORS: true,
+          scale: 2,
+        },
+      });
 
       // Convert PDF to blob
       const pdfBlob = pdf.output('blob');
