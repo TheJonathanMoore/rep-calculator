@@ -157,8 +157,8 @@ export default function SummaryPage() {
     window.print();
   };
 
-  // Helper function to convert oklch colors to RGB-compatible format
-  const convertOklchToRgb = (element: HTMLElement) => {
+  // Helper function to convert oklch colors to RGB-compatible format on element
+  const convertOklchToRgbInPlace = (element: HTMLElement) => {
     const computedStyle = window.getComputedStyle(element);
     const styles = computedStyle.cssText;
 
@@ -169,34 +169,61 @@ export default function SummaryPage() {
       const borderColor = computedStyle.borderColor;
 
       // Apply computed colors directly
-      element.style.backgroundColor = bgColor;
-      element.style.color = textColor;
-      element.style.borderColor = borderColor;
+      if (bgColor) element.style.backgroundColor = bgColor;
+      if (textColor) element.style.color = textColor;
+      if (borderColor) element.style.borderColor = borderColor;
     }
 
     // Recursively process all children
     Array.from(element.children).forEach((child) => {
-      convertOklchToRgb(child as HTMLElement);
+      convertOklchToRgbInPlace(child as HTMLElement);
     });
+  };
+
+  // Helper to save and restore inline styles
+  const saveStyles = (element: HTMLElement): Map<HTMLElement, string> => {
+    const styles = new Map<HTMLElement, string>();
+    const walk = (el: HTMLElement) => {
+      styles.set(el, el.getAttribute('style') || '');
+      Array.from(el.children).forEach((child) => walk(child as HTMLElement));
+    };
+    walk(element);
+    return styles;
+  };
+
+  const restoreStyles = (element: HTMLElement, styles: Map<HTMLElement, string>) => {
+    const walk = (el: HTMLElement) => {
+      const savedStyle = styles.get(el);
+      if (savedStyle === '') {
+        el.removeAttribute('style');
+      } else {
+        el.setAttribute('style', savedStyle || '');
+      }
+      Array.from(el.children).forEach((child) => walk(child as HTMLElement));
+    };
+    walk(element);
   };
 
   const handleDownloadPDF = async () => {
     if (!printableRef.current) return;
 
     try {
-      // Clone the element to avoid modifying the DOM
-      const clonedElement = printableRef.current.cloneNode(true) as HTMLElement;
+      // Save original inline styles
+      const savedStyles = saveStyles(printableRef.current);
 
       // Convert oklch colors to RGB-compatible format
-      convertOklchToRgb(clonedElement);
+      convertOklchToRgbInPlace(printableRef.current);
 
       // Use html2canvas to capture the styled HTML as an image
-      const canvas = await html2canvas(clonedElement, {
+      const canvas = await html2canvas(printableRef.current, {
         allowTaint: true,
         useCORS: true,
         scale: 2,
         logging: false,
       });
+
+      // Restore original styles
+      restoreStyles(printableRef.current, savedStyles);
 
       // Create PDF from the canvas
       const pdf = new jsPDF({
@@ -258,19 +285,22 @@ export default function SummaryPage() {
 
       setSendingError('');
 
-      // Clone the element to avoid modifying the DOM
-      const clonedElement = printElement.cloneNode(true) as HTMLElement;
+      // Save original inline styles
+      const savedStyles = saveStyles(printElement);
 
       // Convert oklch colors to RGB-compatible format
-      convertOklchToRgb(clonedElement);
+      convertOklchToRgbInPlace(printElement);
 
       // Use html2canvas to capture the styled HTML as an image
-      const canvas = await html2canvas(clonedElement, {
+      const canvas = await html2canvas(printElement, {
         allowTaint: true,
         useCORS: true,
         scale: 2,
         logging: false,
       });
+
+      // Restore original styles
+      restoreStyles(printElement, savedStyles);
 
       // Create PDF from the canvas
       const pdf = new jsPDF({
