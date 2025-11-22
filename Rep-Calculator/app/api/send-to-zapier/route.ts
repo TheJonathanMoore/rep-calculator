@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const tempDir = path.join(process.cwd(), 'tmp-pdfs');
     try {
       await fs.mkdir(tempDir, { recursive: true });
-    } catch (error) {
+    } catch {
       console.log('Temp directory already exists or could not create');
     }
 
