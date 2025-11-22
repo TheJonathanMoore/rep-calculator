@@ -157,12 +157,41 @@ export default function SummaryPage() {
     window.print();
   };
 
+  // Helper function to convert oklch colors to RGB-compatible format
+  const convertOklchToRgb = (element: HTMLElement) => {
+    const computedStyle = window.getComputedStyle(element);
+    const styles = computedStyle.cssText;
+
+    // Replace oklch colors with computed RGB values
+    if (styles.includes('oklch')) {
+      const bgColor = computedStyle.backgroundColor;
+      const textColor = computedStyle.color;
+      const borderColor = computedStyle.borderColor;
+
+      // Apply computed colors directly
+      element.style.backgroundColor = bgColor;
+      element.style.color = textColor;
+      element.style.borderColor = borderColor;
+    }
+
+    // Recursively process all children
+    Array.from(element.children).forEach((child) => {
+      convertOklchToRgb(child as HTMLElement);
+    });
+  };
+
   const handleDownloadPDF = async () => {
     if (!printableRef.current) return;
 
     try {
+      // Clone the element to avoid modifying the DOM
+      const clonedElement = printableRef.current.cloneNode(true) as HTMLElement;
+
+      // Convert oklch colors to RGB-compatible format
+      convertOklchToRgb(clonedElement);
+
       // Use html2canvas to capture the styled HTML as an image
-      const canvas = await html2canvas(printableRef.current, {
+      const canvas = await html2canvas(clonedElement, {
         allowTaint: true,
         useCORS: true,
         scale: 2,
@@ -229,8 +258,14 @@ export default function SummaryPage() {
 
       setSendingError('');
 
+      // Clone the element to avoid modifying the DOM
+      const clonedElement = printElement.cloneNode(true) as HTMLElement;
+
+      // Convert oklch colors to RGB-compatible format
+      convertOklchToRgb(clonedElement);
+
       // Use html2canvas to capture the styled HTML as an image
-      const canvas = await html2canvas(printElement, {
+      const canvas = await html2canvas(clonedElement, {
         allowTaint: true,
         useCORS: true,
         scale: 2,
