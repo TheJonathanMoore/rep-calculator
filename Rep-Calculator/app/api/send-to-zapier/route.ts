@@ -8,13 +8,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { file: base64File, filename, related_id, attachment_type, description } = body;
 
+    console.log('Received send-to-zapier request');
+    console.log('File type:', typeof base64File);
+    console.log('File length:', base64File?.length);
+    console.log('Related ID:', related_id);
+
     // Convert base64 data URL to clean base64 string
     let base64String = base64File;
 
     // Remove the "data:application/pdf;base64," prefix if present
     if (base64String.startsWith('data:')) {
+      console.log('Removing data URL prefix...');
       base64String = base64String.split(',')[1];
     }
+
+    console.log('Base64 string length after cleanup:', base64String?.length);
 
     // Create temp directory if it doesn't exist
     const tempDir = path.join(process.cwd(), 'tmp-pdfs');
@@ -57,6 +65,7 @@ export async function POST(request: NextRequest) {
     console.log('File URL:', fileUrl);
     console.log('Attachment Type:', attachment_type);
     console.log('Description:', description);
+    console.log('Zapier payload:', JSON.stringify(zapierPayload, null, 2));
 
     const response = await fetch(zapierWebhookUrl, {
       method: 'POST',
