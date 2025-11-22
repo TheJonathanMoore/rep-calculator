@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const fileUrl = `${appUrl}/api/send-to-zapier/get-pdf/${timestamp}/${safeFilename}`;
 
-    // Prepare payload for Zapier with file URL
+    // Prepare payload for Zapier
+    // Some Zapier integrations expect 'file' field with base64, others expect 'file_url'
+    // We'll try sending the file_url approach first, which is cleaner and more secure
     const zapierPayload = {
       file_url: fileUrl,
       filename,
@@ -59,13 +61,18 @@ export async function POST(request: NextRequest) {
     // Forward to Zapier webhook
     const zapierWebhookUrl = 'https://hooks.zapier.com/hooks/catch/24628620/u8ekbpf/';
 
-    console.log('Forwarding to Zapier webhook with file URL...');
+    console.log('=====================================');
+    console.log('SENDING TO ZAPIER WEBHOOK');
+    console.log('=====================================');
+    console.log('Webhook URL:', zapierWebhookUrl);
     console.log('Filename:', filename);
     console.log('Related ID (JNID):', related_id);
     console.log('File URL:', fileUrl);
+    console.log('File exists check - saved to:', filepath);
     console.log('Attachment Type:', attachment_type);
     console.log('Description:', description);
-    console.log('Zapier payload:', JSON.stringify(zapierPayload, null, 2));
+    console.log('Full Zapier payload:', JSON.stringify(zapierPayload, null, 2));
+    console.log('=====================================');
 
     const response = await fetch(zapierWebhookUrl, {
       method: 'POST',
@@ -74,6 +81,8 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(zapierPayload),
     });
+
+    console.log('Zapier webhook response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
