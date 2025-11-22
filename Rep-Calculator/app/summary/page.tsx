@@ -439,40 +439,22 @@ export default function SummaryPage() {
       // Convert PDF to blob
       const pdfBlob = pdf.output('blob');
 
-      // Convert blob to base64 for Zapier webhook
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result;
-          if (typeof result === 'string') {
-            resolve(result);
-          } else {
-            reject(new Error('Failed to read file'));
-          }
-        };
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(pdfBlob);
-      });
+      // Create FormData to send file directly to Zapier
+      const formData = new FormData();
+      formData.append('file', pdfBlob, 'Scope Summary.pdf');
+      formData.append('related_id', customer.jnid);
+      formData.append('attachment_type', 'Document');
+      formData.append('description', 'Scope of Work Summary - Generated from Rep Calculator');
+      formData.append('filename', 'Scope Summary.pdf');
 
-      const base64Pdf = await base64Promise;
+      console.log('Sending PDF directly to Zapier webhook');
 
-      // Send to backend API which forwards to Zapier webhook
-      const webhookPayload = {
-        file: base64Pdf,
-        filename: 'Scope Summary.pdf',
-        related_id: customer.jnid,
-        attachment_type: 'Document',
-        description: 'Scope of Work Summary - Generated from Rep Calculator',
-      };
+      // Send directly to Zapier webhook as FormData
+      const zapierWebhookUrl = 'https://hooks.zapier.com/hooks/catch/24628620/u8ekbpf/';
 
-      console.log('Sending to Zapier via backend API:', { ...webhookPayload, file: '[base64 data]' });
-
-      const response = await fetch('/api/send-to-zapier', {
+      const response = await fetch(zapierWebhookUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(webhookPayload),
+        body: formData,
       });
 
       if (!response.ok) {
