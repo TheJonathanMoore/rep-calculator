@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,12 +22,26 @@ export async function POST(request: NextRequest) {
 
     console.log('Base64 string length after cleanup:', base64String?.length);
 
-    // Prepare payload for Zapier
-    // Vercel's serverless environment is read-only, so we can't write files to disk
-    // Instead, we send the base64 directly to Zapier for JobNimbus attachment
-    // Zapier will handle decoding and attaching the file to JobNimbus
+    // Convert base64 to Buffer
+    const buffer = Buffer.from(base64String, 'base64');
+
+    // Upload to Vercel Blob Storage
+    const timestamp = Date.now();
+    const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const blobPath = `scope-summaries/${timestamp}-${safeFilename}`;
+
+    console.log('Uploading to Vercel Blob Storage:', blobPath);
+
+    const blob = await put(blobPath, buffer, {
+      contentType: 'application/pdf',
+      access: 'public',
+    });
+
+    console.log('File uploaded to Blob Storage:', blob.url);
+
+    // Prepare payload for Zapier with the public URL
     const zapierPayload = {
-      file: base64String,
+      file_url: blob.url,
       filename,
       related_id,
       attachment_type,
@@ -44,7 +59,7 @@ export async function POST(request: NextRequest) {
     console.log('Related ID (JNID):', related_id);
     console.log('Attachment Type:', attachment_type);
     console.log('Description:', description);
-    console.log('Base64 file size:', base64String.length, 'characters');
+    console.log('File URL:', blob.url);
     console.log('=====================================');
 
     const response = await fetch(zapierWebhookUrl, {
@@ -73,6 +88,7 @@ export async function POST(request: NextRequest) {
       message: 'Document sent to JobNimbus via Zapier',
       filename,
       related_id,
+      file_url: blob.url,
     });
   } catch (error) {
     console.error('Error sending to Zapier:', error);
