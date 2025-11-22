@@ -48,14 +48,20 @@ export async function POST(request: NextRequest) {
     const fileUrl = `${appUrl}/api/send-to-zapier/get-pdf/${timestamp}/${safeFilename}`;
 
     // Prepare payload for Zapier
-    // Some Zapier integrations expect 'file' field with base64, others expect 'file_url'
-    // We'll try sending the file_url approach first, which is cleaner and more secure
+    // Send the file URL approach - Zapier's JobNimbus integration can download from URL
+    // This is better than base64 because:
+    // 1. URLs can be re-accessed if needed
+    // 2. File size is not limited by request size
+    // 3. More secure - file stays on our server
     const zapierPayload = {
       file_url: fileUrl,
       filename,
       related_id,
       attachment_type,
       description,
+      // Include base64 as a backup in case the Zapier zap is configured to use it
+      // Some older Zapier workflows expect the 'file' field with base64 data
+      file: base64String,
     };
 
     // Forward to Zapier webhook
