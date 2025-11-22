@@ -276,7 +276,6 @@ export default function UploadPage() {
                   accept="application/pdf"
                   onChange={handleFileChange}
                   className="hidden"
-                  disabled={extracting}
                 />
 
                 {/* Drag and drop zone */}
@@ -419,11 +418,11 @@ export default function UploadPage() {
 
             <Button
               onClick={handleRead}
-              disabled={loading || extracting}
+              disabled={loading}
               className="w-full"
               size="lg"
             >
-              {extracting ? 'Extracting text...' : loading ? 'Reading...' : 'Read Document'}
+              {loading ? 'Reading...' : 'Read Document'}
             </Button>
           </CardContent>
         </Card>
