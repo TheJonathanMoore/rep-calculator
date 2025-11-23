@@ -156,10 +156,54 @@ export default function SummaryPage() {
     window.print();
   };
 
+  // Helper function to apply computed RGB colors to inline styles (avoiding oklch issues)
+  const applyComputedColors = (element: HTMLElement) => {
+    const walk = (el: HTMLElement) => {
+      const computed = window.getComputedStyle(el);
+
+      // Apply computed colors to inline styles to replace oklch references
+      const bgColor = computed.backgroundColor;
+      const color = computed.color;
+      const borderColor = computed.borderColor;
+      const borderTopColor = computed.borderTopColor;
+      const borderRightColor = computed.borderRightColor;
+      const borderBottomColor = computed.borderBottomColor;
+      const borderLeftColor = computed.borderLeftColor;
+
+      if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)') {
+        el.style.backgroundColor = bgColor;
+      }
+      if (color) {
+        el.style.color = color;
+      }
+      if (borderColor) {
+        el.style.borderColor = borderColor;
+      }
+      if (borderTopColor) {
+        el.style.borderTopColor = borderTopColor;
+      }
+      if (borderRightColor) {
+        el.style.borderRightColor = borderRightColor;
+      }
+      if (borderBottomColor) {
+        el.style.borderBottomColor = borderBottomColor;
+      }
+      if (borderLeftColor) {
+        el.style.borderLeftColor = borderLeftColor;
+      }
+
+      Array.from(el.children).forEach((child) => walk(child as HTMLElement));
+    };
+    walk(element);
+  };
+
   const handleDownloadPDF = async () => {
     if (!printableRef.current) return;
 
     try {
+      // Apply computed RGB colors to replace oklch before PDF generation
+      applyComputedColors(printableRef.current);
+
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -181,6 +225,7 @@ export default function SummaryPage() {
           allowTaint: true,
           useCORS: true,
           scale: 2,
+          logging: false,
         },
       });
 
@@ -219,6 +264,9 @@ export default function SummaryPage() {
 
       setSendingError('');
 
+      // Apply computed RGB colors to replace oklch before PDF generation
+      applyComputedColors(printElement);
+
       // Create PDF using jsPDF's html method
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -240,6 +288,7 @@ export default function SummaryPage() {
           allowTaint: true,
           useCORS: true,
           scale: 2,
+          logging: false,
         },
       });
 
