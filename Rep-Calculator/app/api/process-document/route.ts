@@ -24,10 +24,11 @@ CRITICAL INSTRUCTIONS:
    - Miscellaneous/General Conditions (permits, dumpster, cleanup, supervision, etc.)
 
 For each line item, extract:
-1. Quantity (number and unit, e.g., "120 LF", "45 SQ", "1 EA", "8 HR") - if no quantity listed, use "1 EA"
-2. Description (the complete work description exactly as written)
-3. RCV value (Replacement Cost Value in dollars - extract the number only, no symbols) - ALWAYS REQUIRED
-4. ACV value (Actual Cash Value in dollars - extract DIFFERENT value if available in document, NOT the same as RCV)
+1. Document Line Number (the original line item number from the document, e.g., "01", "02", "Line 1", etc.) - PRESERVE ORIGINAL NUMBERING FROM DOCUMENT
+2. Quantity (number and unit, e.g., "120 LF", "45 SQ", "1 EA", "8 HR") - if no quantity listed, use "1 EA"
+3. Description (the complete work description exactly as written)
+4. RCV value (Replacement Cost Value in dollars - extract the number only, no symbols) - ALWAYS REQUIRED
+5. ACV value (Actual Cash Value in dollars - extract DIFFERENT value if available in document, NOT the same as RCV)
 
 IMPORTANT RCV vs ACV CLARIFICATION:
 - RCV (Replacement Cost Value) = the cost to replace the item as new
@@ -65,6 +66,7 @@ Output the result as a JSON object with this exact structure:
       "lineItems": [
         {
           "id": "unique-item-id-1",
+          "documentLineNumber": "01",
           "quantity": "1 EA",
           "description": "Tear off existing shingles",
           "rcv": 2500.00,
@@ -74,6 +76,7 @@ Output the result as a JSON object with this exact structure:
         },
         {
           "id": "unique-item-id-2",
+          "documentLineNumber": "02",
           "quantity": "45 SQ",
           "description": "Install GAF Timberline HDZ shingles",
           "rcv": 8500.00,
@@ -90,6 +93,7 @@ Output the result as a JSON object with this exact structure:
       "lineItems": [
         {
           "id": "unique-item-id-3",
+          "documentLineNumber": "03",
           "quantity": "120 LF",
           "description": "Replace 5 inch K-style gutters",
           "rcv": 1200.00,
@@ -107,6 +111,8 @@ Important rules:
 - Parse RCV values carefully, removing any currency symbols or commas
 - Deductible: Extract as a number (e.g., 2500), default to 0 if not found
 - Generate unique IDs for trades and line items (use format: "trade-1", "trade-2", "item-1", "item-2", etc.)
+- PRESERVE DOCUMENT LINE NUMBERS: Each line item MUST include its original document line number in "documentLineNumber" field
+- PRESERVE DOCUMENT ORDER: Line items within each trade should be in the SAME ORDER as they appear in the original document
 - Group related items logically by trade
 - If you can't determine the trade, use "Miscellaneous" or "General Conditions"
 - If the document has page numbers or references multiple pages, make sure to read ALL pages
@@ -123,7 +129,9 @@ DOUBLE-CHECK before returning:
 - Did you find the claim adjuster name and email?
 - CRITICAL: Did you extract DIFFERENT ACV values (not matching RCV) for items where available in the document?
 - If only one price was available per item, is ACV field omitted (not set equal to RCV)?
-- CRITICAL: Did you exclude all sales tax, material tax, and tax-related line items? Extract only actual work/material items.`;
+- CRITICAL: Did you exclude all sales tax, material tax, and tax-related line items? Extract only actual work/material items.
+- CRITICAL: Did you include the documentLineNumber field for EVERY line item with the original document line number?
+- CRITICAL: Are line items within each trade in the SAME ORDER as they appear in the original document?`;
 
 export async function POST(request: NextRequest) {
   try {

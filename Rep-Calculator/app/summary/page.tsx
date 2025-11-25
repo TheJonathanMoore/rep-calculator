@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 interface LineItem {
   id: string;
+  documentLineNumber?: string;
   quantity: string;
   description: string;
   rcv: number;
@@ -156,83 +158,80 @@ export default function SummaryPage() {
     window.print();
   };
 
-  // Helper function to apply computed RGB colors to inline styles (avoiding oklch issues)
-  const applyComputedColors = (element: HTMLElement) => {
-    const walk = (el: HTMLElement) => {
-      const computed = window.getComputedStyle(el);
+  // Generate PDF from screen capture (html2canvas) to preserve all styling
+  const generatePDFFromCapture = async (element: HTMLElement): Promise<Blob> => {
+    // Capture the element as a canvas image
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
 
-      // Apply computed colors to inline styles to replace oklch references
-      const bgColor = computed.backgroundColor;
-      const color = computed.color;
-      const borderColor = computed.borderColor;
-      const borderTopColor = computed.borderTopColor;
-      const borderRightColor = computed.borderRightColor;
-      const borderBottomColor = computed.borderBottomColor;
-      const borderLeftColor = computed.borderLeftColor;
+    // Get canvas dimensions
+    const imgWidth = 210; // A4 width in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)') {
-        el.style.backgroundColor = bgColor;
-      }
-      if (color) {
-        el.style.color = color;
-      }
-      if (borderColor) {
-        el.style.borderColor = borderColor;
-      }
-      if (borderTopColor) {
-        el.style.borderTopColor = borderTopColor;
-      }
-      if (borderRightColor) {
-        el.style.borderRightColor = borderRightColor;
-      }
-      if (borderBottomColor) {
-        el.style.borderBottomColor = borderBottomColor;
-      }
-      if (borderLeftColor) {
-        el.style.borderLeftColor = borderLeftColor;
+    // Create PDF
+    const pdf = new jsPDF({
+      orientation: imgHeight > imgWidth ? 'portrait' : 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    let currentY = 0;
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    let pageNum = 1;
+
+    // Add image(s) to PDF, splitting across multiple pages if needed
+    while (currentY < imgHeight) {
+      if (currentY > 0) {
+        pdf.addPage();
+        pageNum++;
       }
 
-      Array.from(el.children).forEach((child) => walk(child as HTMLElement));
-    };
-    walk(element);
+      const remainingHeight = imgHeight - currentY;
+      const heightToAdd = Math.min(pageHeight - 10, remainingHeight);
+
+      // Calculate crop dimensions
+      const cropTop = (currentY / imgHeight) * canvas.height;
+      const cropHeight = (heightToAdd / imgHeight) * canvas.height;
+
+      // Create temporary canvas for this page
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = cropHeight;
+      const ctx = pageCanvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(canvas, 0, cropTop, canvas.width, cropHeight, 0, 0, canvas.width, cropHeight);
+      }
+
+      const pageImgData = pageCanvas.toDataURL('image/png');
+      pdf.addImage(pageImgData, 'PNG', 5, 5, imgWidth - 10, heightToAdd);
+
+      currentY += heightToAdd;
+    }
+
+    return pdf.output('blob');
   };
 
   const handleDownloadPDF = async () => {
     if (!printableRef.current) return;
 
     try {
-      // Apply computed RGB colors to replace oklch before PDF generation
-      applyComputedColors(printableRef.current);
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 5;
-
-      // Use jsPDF's html method to convert HTML to PDF
-      await pdf.html(printableRef.current, {
-        margin: margin,
-        x: margin,
-        y: margin,
-        width: pageWidth - 2 * margin,
-        windowHeight: printableRef.current.scrollHeight,
-        html2canvas: {
-          allowTaint: true,
-          useCORS: true,
-          scale: 2,
-          logging: false,
-        },
-      });
-
-      const filename = customer?.displayName
+      const pdfBlob = await generatePDFFromCapture(printableRef.current);
+      const url = window.URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = customer?.displayName
         ? `scope-summary-${customer.displayName.replace(/\s+/g, '-').toLowerCase()}.pdf`
         : 'scope-summary.pdf';
-      pdf.save(filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF');
@@ -259,41 +258,8 @@ export default function SummaryPage() {
     setSendingError('');
 
     try {
-      const printElement = printableRef.current;
-      if (!printElement) throw new Error('Unable to find printable element');
-
-      setSendingError('');
-
-      // Apply computed RGB colors to replace oklch before PDF generation
-      applyComputedColors(printElement);
-
-      // Create PDF using jsPDF's html method
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 5;
-
-      // Use jsPDF's html method to convert HTML to PDF
-      await pdf.html(printElement, {
-        margin: margin,
-        x: margin,
-        y: margin,
-        width: pageWidth - 2 * margin,
-        windowHeight: printElement.scrollHeight,
-        html2canvas: {
-          allowTaint: true,
-          useCORS: true,
-          scale: 2,
-          logging: false,
-        },
-      });
-
-      // Convert PDF to blob
-      const pdfBlob = pdf.output('blob');
+      // Generate PDF from screen capture
+      const pdfBlob = await generatePDFFromCapture(printableRef.current);
 
       // Create FormData to send file directly to Zapier
       const formData = new FormData();
@@ -303,7 +269,7 @@ export default function SummaryPage() {
       formData.append('description', 'Scope of Work Summary - Generated from Rep Calculator');
       formData.append('filename', 'Scope Summary.pdf');
 
-      console.log('Sending styled PDF to Zapier webhook');
+      console.log('Sending PDF (screenshot-based) to Zapier webhook');
 
       // Send directly to Zapier webhook as FormData
       const zapierWebhookUrl = 'https://hooks.zapier.com/hooks/catch/24628620/u8ekbpf/';
@@ -459,7 +425,7 @@ export default function SummaryPage() {
                                   .filter((item) => item.checked)
                                   .map((item) => (
                                     <tr key={item.id} className="border-b hover:bg-gray-50">
-                                      <td className="p-2 font-mono text-xs text-muted-foreground">{item.id}</td>
+                                      <td className="p-2 font-mono text-xs text-muted-foreground">{item.documentLineNumber || item.id}</td>
                                       <td className="p-2 font-mono text-gray-700">{item.quantity}</td>
                                       <td className="p-2">{item.description}</td>
                                       <td className="p-2 text-right font-mono">
@@ -506,7 +472,7 @@ export default function SummaryPage() {
                                   .filter((item) => !item.checked)
                                   .map((item) => (
                                     <tr key={item.id} className="border-b bg-red-50 opacity-60">
-                                      <td className="p-2 font-mono text-xs text-muted-foreground">{item.id}</td>
+                                      <td className="p-2 font-mono text-xs text-muted-foreground">{item.documentLineNumber || item.id}</td>
                                       <td className="p-2 font-mono text-gray-700">{item.quantity}</td>
                                       <td className="p-2">{item.description}</td>
                                       <td className="p-2 text-right font-mono">
