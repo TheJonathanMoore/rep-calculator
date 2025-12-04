@@ -62,7 +62,7 @@ Output the result as a JSON object with this exact structure:
     {
       "id": "unique-id-1",
       "name": "Roof",
-      "checked": true,
+      "checked": false,
       "supplements": [],
       "lineItems": [
         {
@@ -71,7 +71,7 @@ Output the result as a JSON object with this exact structure:
           "description": "Tear off existing shingles",
           "rcv": 2500.00,
           "acv": 1500.00,
-          "checked": true,
+          "checked": false,
           "notes": ""
         },
         {
@@ -79,7 +79,7 @@ Output the result as a JSON object with this exact structure:
           "quantity": "45 SQ",
           "description": "Install GAF Timberline HDZ shingles",
           "rcv": 8500.00,
-          "checked": true,
+          "checked": false,
           "notes": ""
         }
       ]
@@ -87,7 +87,7 @@ Output the result as a JSON object with this exact structure:
     {
       "id": "unique-id-2",
       "name": "Gutters",
-      "checked": true,
+      "checked": false,
       "supplements": [],
       "lineItems": [
         {
@@ -95,7 +95,7 @@ Output the result as a JSON object with this exact structure:
           "quantity": "120 LF",
           "description": "Replace 5 inch K-style gutters",
           "rcv": 1200.00,
-          "checked": true,
+          "checked": false,
           "notes": ""
         }
       ]
@@ -104,7 +104,7 @@ Output the result as a JSON object with this exact structure:
 }
 
 Important rules:
-- All items should be checked: true by default
+- All items should be checked: false by default (user will manually select items they want to include)
 - Use descriptive trade names (capitalize properly: "Roofing", "Gutters & Downspouts", etc.)
 - Parse RCV values carefully, removing any currency symbols or commas
 - Deductible: Extract as a number (e.g., 2500), default to 0 if not found
