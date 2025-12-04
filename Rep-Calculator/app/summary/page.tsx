@@ -180,16 +180,13 @@ export default function SummaryPage() {
       format: 'a4',
     });
 
-    const imgData = canvas.toDataURL('image/png');
     let currentY = 0;
     const pageHeight = pdf.internal.pageSize.getHeight();
-    let pageNum = 1;
 
     // Add image(s) to PDF, splitting across multiple pages if needed
     while (currentY < imgHeight) {
       if (currentY > 0) {
         pdf.addPage();
-        pageNum++;
       }
 
       const remainingHeight = imgHeight - currentY;
