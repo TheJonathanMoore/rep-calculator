@@ -119,6 +119,7 @@ export default function SummaryPage() {
     let totalAcv = 0;
     let totalSupplements = 0;
     let leftoverAcv = 0;
+    let totalSquares = 0;
     const tradeTotals: { [key: string]: { rcv: number; acv: number } } = {};
 
     trades.forEach((trade) => {
@@ -129,6 +130,11 @@ export default function SummaryPage() {
           tradeRcv += item.rcv;
           if (item.acv) {
             tradeAcv += item.acv;
+          }
+          // Extract square footage from quantity (e.g., "45 SQ", "12 squares")
+          const quantityMatch = item.quantity.match(/(\d+\.?\d*)\s*(SQ|square|squares)/i);
+          if (quantityMatch) {
+            totalSquares += parseFloat(quantityMatch[1]);
           }
         } else {
           if (item.acv) {
@@ -147,10 +153,10 @@ export default function SummaryPage() {
       totalSupplements += supplementTotal;
     });
 
-    return { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv };
+    return { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv, totalSquares };
   };
 
-  const { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv } = calculateTotals();
+  const { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv, totalSquares } = calculateTotals();
 
   const toggleTradeExpanded = (tradeId: string) => {
     setExpandedTrades((prev) => {
@@ -383,6 +389,22 @@ export default function SummaryPage() {
               </div>
             )}
 
+            {/* Total Squares Box */}
+            {totalSquares > 0 && (
+              <div className="border-2 border-blue-600 p-4 rounded-lg bg-blue-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-800 font-semibold">Total Roofing Area</p>
+                    <p className="text-xs text-blue-600">Square footage from scope items</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-bold text-blue-900">{totalSquares.toFixed(0)}</p>
+                    <p className="text-sm text-blue-700 font-medium">Squares</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Scope breakdown by trade */}
             <div className="space-y-4">
               <h2 className="text-2xl font-bold">Scope of Work</h2>
@@ -395,10 +417,11 @@ export default function SummaryPage() {
 
                 return (
                   <div key={trade.id} className="border rounded-lg p-4 space-y-3">
+                    {/* Trade header for screen (interactive) */}
                     <button
                       data-trade-toggle
                       onClick={() => toggleTradeExpanded(trade.id)}
-                      className="w-full text-left flex justify-between items-center border-b pb-2 hover:bg-gray-50 px-0 py-2 rounded"
+                      className="w-full text-left flex justify-between items-center border-b pb-2 hover:bg-gray-50 px-0 py-2 rounded print:hidden"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-lg">{expandedTrades.has(trade.id) ? '▼' : '▶'}</span>
@@ -411,6 +434,17 @@ export default function SummaryPage() {
                         )}
                       </div>
                     </button>
+
+                    {/* Trade header for print (static) */}
+                    <div className="hidden print:block border-b pb-2 mb-3">
+                      <h3 className="text-xl font-semibold mb-2">{trade.name}</h3>
+                      <div className="flex gap-4 text-base font-mono text-gray-700">
+                        <span>Total Insurance Coverage: ${tradeTotals[trade.name]?.rcv.toLocaleString() || 0}</span>
+                        {tradeTotals[trade.name]?.acv > 0 && (
+                          <span>Total Upfront Money: ${tradeTotals[trade.name]?.acv.toLocaleString()}</span>
+                        )}
+                      </div>
+                    </div>
 
                     <div data-trade-content style={{ display: expandedTrades.has(trade.id) ? 'block' : 'none' }}>
                       <>
@@ -709,9 +743,9 @@ export default function SummaryPage() {
             display: block !important;
           }
 
-          /* Hide collapse buttons when printing */
-          button[data-trade-toggle] {
-            display: none !important;
+          /* Show print-only elements */
+          .print\\:block {
+            display: block !important;
           }
 
           /* Portrait orientation for print */
