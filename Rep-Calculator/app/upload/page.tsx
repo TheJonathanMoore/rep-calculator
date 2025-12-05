@@ -286,22 +286,35 @@ export default function UploadPage() {
                       }
                     }
                   }}
-                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
                     file
                       ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                       : 'border-muted-foreground/50 hover:border-muted-foreground bg-muted/30 hover:bg-muted/50'
                   }`}
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="text-3xl">📄</div>
                     <div>
                       <p className="text-base font-medium">
                         {file ? 'File Ready' : 'Drag & Drop your PDF here'}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {file ? file.name : 'or click the button below'}
+                        {file ? file.name : 'or click the button below to choose a file'}
                       </p>
                     </div>
+
+                    {/* Click to upload button inside drag area */}
+                    {!file && (
+                      <Button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        variant="outline"
+                        size="lg"
+                      >
+                        📁 Choose PDF File
+                      </Button>
+                    )}
+
                     {file && (
                       <button
                         onClick={() => {
@@ -315,18 +328,6 @@ export default function UploadPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Click to upload button */}
-                <Button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={file !== null}
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                >
-                  📁 Choose PDF File
-                </Button>
 
                 {extractionStatus && (
                   <div className="text-sm text-blue-600">
