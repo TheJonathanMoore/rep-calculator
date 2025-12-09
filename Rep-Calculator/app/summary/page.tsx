@@ -119,7 +119,6 @@ export default function SummaryPage() {
     let totalAcv = 0;
     let totalSupplements = 0;
     let leftoverAcv = 0;
-    let totalSquares = 0;
     const tradeTotals: { [key: string]: { rcv: number; acv: number } } = {};
 
     trades.forEach((trade) => {
@@ -130,11 +129,6 @@ export default function SummaryPage() {
           tradeRcv += item.rcv;
           if (item.acv) {
             tradeAcv += item.acv;
-          }
-          // Extract square footage from quantity (e.g., "45 SQ", "12 squares")
-          const quantityMatch = item.quantity.match(/(\d+\.?\d*)\s*(SQ|square|squares)/i);
-          if (quantityMatch) {
-            totalSquares += parseFloat(quantityMatch[1]);
           }
         } else {
           if (item.acv) {
@@ -153,10 +147,10 @@ export default function SummaryPage() {
       totalSupplements += supplementTotal;
     });
 
-    return { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv, totalSquares };
+    return { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv };
   };
 
-  const { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv, totalSquares } = calculateTotals();
+  const { totalRcv, totalAcv, tradeTotals, totalSupplements, leftoverAcv } = calculateTotals();
 
   const toggleTradeExpanded = (tradeId: string) => {
     setExpandedTrades((prev) => {
@@ -172,6 +166,15 @@ export default function SummaryPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handlePrintAndDownload = async () => {
+    // First download the PDF
+    await handleDownloadPDF();
+    // Then open print dialog
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   // Generate PDF from screen capture (html2canvas) to preserve all styling
@@ -313,11 +316,8 @@ export default function SummaryPage() {
       <div className="max-w-4xl mx-auto">
         {/* Control buttons (hidden from print) */}
         <div className="mb-6 flex gap-2 flex-wrap print:hidden">
-          <Button onClick={handlePrint} variant="default" size="lg">
-            🖨️ Print
-          </Button>
-          <Button onClick={handleDownloadPDF} variant="default" size="lg">
-            📥 Download PDF
+          <Button onClick={handlePrintAndDownload} variant="default" size="lg">
+            Print & Download
           </Button>
           <Button
             onClick={handleSendToJobNimbus}
@@ -386,22 +386,6 @@ export default function SummaryPage() {
                     <p className="text-lg font-semibold">{claimAdjuster.name}</p>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Total Squares Box */}
-            {totalSquares > 0 && (
-              <div className="border-2 border-blue-600 p-4 rounded-lg bg-blue-50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-800 font-semibold">Total Roofing Area</p>
-                    <p className="text-xs text-blue-600">Square footage from scope items</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-bold text-blue-900">{totalSquares.toFixed(0)}</p>
-                    <p className="text-sm text-blue-700 font-medium">Squares</p>
-                  </div>
-                </div>
               </div>
             )}
 
