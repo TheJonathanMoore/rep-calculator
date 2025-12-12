@@ -164,10 +164,6 @@ export default function SummaryPage() {
     });
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handlePrintAndDownload = async () => {
     // First download the PDF
     await handleDownloadPDF();
