@@ -152,8 +152,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Initialize Gemini model
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    // Initialize Gemini model with JSON response mode
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+      },
+    });
 
     // Prepare the file data for Gemini
     const base64Data = fileData.includes(',')
@@ -175,7 +180,7 @@ export async function POST(request: NextRequest) {
 
     const result = response.response.text();
 
-    // Parse the JSON response
+    // Parse the JSON response with comprehensive cleaning
     let jsonString = result.trim();
 
     // Remove markdown code blocks if present
@@ -184,32 +189,60 @@ export async function POST(request: NextRequest) {
       jsonString = jsonString.replace(/\n```\s*$/, '');
     }
 
-    // Clean up common JSON formatting issues
     jsonString = jsonString.trim();
 
-    // Remove trailing commas before closing braces/brackets
-    jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+    // Function to repair common JSON issues
+    function repairJSON(str: string): string {
+      let repaired = str;
 
-    // Try to parse and provide better error message if it fails
+      // Remove trailing commas before closing braces/brackets
+      repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+
+      // Fix unescaped quotes in strings (common issue)
+      // This is a simplified fix - matches strings and escapes internal quotes
+      repaired = repaired.replace(/"([^"]*)"(\s*:\s*)"([^"]*)"/g, (match, key, colon, value) => {
+        // Escape any unescaped quotes in the value
+        const escapedValue = value.replace(/\\"/g, '\uffff').replace(/"/g, '\\"').replace(/\uffff/g, '\\"');
+        return `"${key}"${colon}"${escapedValue}"`;
+      });
+
+      return repaired;
+    }
+
+    // Try to parse with progressive repair attempts
     let parsedResult;
-    try {
-      parsedResult = JSON.parse(jsonString);
-    } catch (parseError) {
-      console.error('JSON Parse Error:', parseError);
-      console.error('Raw response:', result);
-      console.error('Cleaned JSON string:', jsonString);
+    let lastError;
 
-      // Try to extract just the JSON object if there's text before/after
-      const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const extractedJson = jsonMatch[0].replace(/,(\s*[}\]])/g, '$1');
-        try {
-          parsedResult = JSON.parse(extractedJson);
-        } catch (retryError) {
-          throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response preview: ${jsonString.substring(0, 500)}`);
+    // Attempt 1: Parse as-is with basic cleaning
+    try {
+      const cleaned = repairJSON(jsonString);
+      parsedResult = JSON.parse(cleaned);
+    } catch (parseError) {
+      lastError = parseError;
+      console.error('Attempt 1 failed:', parseError);
+
+      // Attempt 2: Extract JSON object and retry
+      try {
+        const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const extracted = repairJSON(jsonMatch[0]);
+          parsedResult = JSON.parse(extracted);
+        } else {
+          throw new Error('No JSON object found in response');
         }
-      } else {
-        throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response preview: ${jsonString.substring(0, 500)}`);
+      } catch (retryError) {
+        lastError = retryError;
+        console.error('Attempt 2 failed:', retryError);
+
+        // Attempt 3: Ask Gemini to regenerate with stricter JSON requirement
+        console.error('All parsing attempts failed. Raw response:', result);
+        console.error('Cleaned JSON string (first 1000 chars):', jsonString.substring(0, 1000));
+
+        throw new Error(
+          `Failed to parse JSON response after multiple attempts: ${
+            lastError instanceof Error ? lastError.message : 'Unknown error'
+          }. The AI response may contain unescaped quotes or invalid JSON. Response preview: ${jsonString.substring(0, 500)}`
+        );
       }
     }
 
