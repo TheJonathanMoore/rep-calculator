@@ -184,7 +184,34 @@ export async function POST(request: NextRequest) {
       jsonString = jsonString.replace(/\n```\s*$/, '');
     }
 
-    const parsedResult = JSON.parse(jsonString.trim());
+    // Clean up common JSON formatting issues
+    jsonString = jsonString.trim();
+
+    // Remove trailing commas before closing braces/brackets
+    jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+
+    // Try to parse and provide better error message if it fails
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Raw response:', result);
+      console.error('Cleaned JSON string:', jsonString);
+
+      // Try to extract just the JSON object if there's text before/after
+      const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const extractedJson = jsonMatch[0].replace(/,(\s*[}\]])/g, '$1');
+        try {
+          parsedResult = JSON.parse(extractedJson);
+        } catch (retryError) {
+          throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response preview: ${jsonString.substring(0, 500)}`);
+        }
+      } else {
+        throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response preview: ${jsonString.substring(0, 500)}`);
+      }
+    }
 
     return NextResponse.json(parsedResult);
   } catch (error) {
