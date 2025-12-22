@@ -35,6 +35,14 @@ export default function UploadPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile && (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf'))) {
+      // Check file size (15MB limit to account for base64 encoding overhead)
+      const maxSizeMB = 15;
+      const maxSizeBytes = maxSizeMB * 1024 * 1024;
+      if (selectedFile.size > maxSizeBytes) {
+        setError(`File too large. Please select a PDF smaller than ${maxSizeMB}MB (current file: ${(selectedFile.size / 1024 / 1024).toFixed(1)}MB)`);
+        setFile(null);
+        return;
+      }
       setFile(selectedFile);
       setError('');
     } else {
@@ -278,6 +286,14 @@ export default function UploadPage() {
                     if (droppedFiles.length > 0) {
                       const droppedFile = droppedFiles[0];
                       if (droppedFile.type === 'application/pdf' || droppedFile.name.toLowerCase().endsWith('.pdf')) {
+                        // Check file size (15MB limit to account for base64 encoding overhead)
+                        const maxSizeMB = 15;
+                        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+                        if (droppedFile.size > maxSizeBytes) {
+                          setError(`File too large. Please select a PDF smaller than ${maxSizeMB}MB (current file: ${(droppedFile.size / 1024 / 1024).toFixed(1)}MB)`);
+                          setFile(null);
+                          return;
+                        }
                         setFile(droppedFile);
                         setError('');
                       } else {
