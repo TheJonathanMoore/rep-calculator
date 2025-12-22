@@ -126,11 +126,14 @@ export default function UploadPage() {
         }),
       });
 
+      // Clone the response to avoid body stream consumption issues
+      const responseClone = response.clone();
+
       if (!response.ok) {
         let errorMessage = 'Failed to process document';
         try {
           // First get response as text, then try to parse as JSON
-          const responseText = await response.text();
+          const responseText = await responseClone.text();
           try {
             const errorData = JSON.parse(responseText);
             errorMessage = errorData.error || errorMessage;
