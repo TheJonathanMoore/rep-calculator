@@ -129,14 +129,18 @@ export default function UploadPage() {
       if (!response.ok) {
         let errorMessage = 'Failed to process document';
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // If response is not JSON, try to read as text
-          const errorText = await response.text();
-          if (errorText) {
-            errorMessage = errorText;
+          // First get response as text, then try to parse as JSON
+          const responseText = await response.text();
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            // If not valid JSON, use the text directly
+            errorMessage = responseText || errorMessage;
           }
+        } catch {
+          // If we can't even read the response
+          errorMessage = 'Failed to process document - server error';
         }
         throw new Error(errorMessage);
       }
