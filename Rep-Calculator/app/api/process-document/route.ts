@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize Gemini model with JSON response mode
     const model = genAI.getGenerativeModel({
-      model: 'gemini-3-pro-preview-11-2025',
+      model: 'gemini-3-flash-preview',
       generationConfig: {
         responseMimeType: 'application/json',
       },
