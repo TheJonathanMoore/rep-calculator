@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Configure route to accept larger request bodies (20MB for large PDFs)
+// Configure route for Vercel Hobby plan limits
 export const runtime = 'nodejs';
-export const maxDuration = 60; // 60 seconds for processing large documents
+export const maxDuration = 10; // 10 seconds max on Hobby plan (60s requires Pro)
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
