@@ -162,6 +162,16 @@ export default function UploadPage() {
       return;
     }
 
+    // Check file size (Vercel has a 4.5MB request body limit on Hobby plan)
+    // Base64 encoding increases size by ~33%, so limit to 3MB to be safe
+    if (inputMode === 'file' && file && file.size > 3 * 1024 * 1024) {
+      setError(
+        `File size (${(file.size / 1024 / 1024).toFixed(1)}MB) exceeds the 3MB limit. ` +
+        'Please compress your PDF or use the "Paste Insurance Document Text" option instead.'
+      );
+      return;
+    }
+
     if (inputMode === 'text' && !insuranceText.trim()) {
       setError('Please enter insurance document text');
       return;
