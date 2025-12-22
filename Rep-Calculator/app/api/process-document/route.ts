@@ -140,11 +140,11 @@ DOUBLE-CHECK before returning:
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { fileData, fileName, mimeType } = body;
+    const { blobUrl, fileName } = body;
 
-    if (!fileData || !fileName) {
+    if (!blobUrl || !fileName) {
       return NextResponse.json(
-        { error: 'Missing file data or file name' },
+        { error: 'Missing blob URL or file name' },
         { status: 400 }
       );
     }
@@ -156,6 +156,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch the file from blob storage
+    const blobResponse = await fetch(blobUrl);
+    if (!blobResponse.ok) {
+      return NextResponse.json(
+        { error: 'Failed to fetch file from blob storage' },
+        { status: 500 }
+      );
+    }
+
+    // Convert blob to base64 for Gemini
+    const arrayBuffer = await blobResponse.arrayBuffer();
+    const base64Data = Buffer.from(arrayBuffer).toString('base64');
+
+    // Determine MIME type from blob response or default to PDF
+    const mimeType = blobResponse.headers.get('content-type') || 'application/pdf';
+
     // Initialize Gemini model with JSON response mode
     const model = genAI.getGenerativeModel({
       model: 'gemini-3-flash-preview',
@@ -164,15 +180,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Prepare the file data for Gemini
-    const base64Data = fileData.includes(',')
-      ? fileData.split(',')[1]
-      : fileData;
-
     const imagePart = {
       inlineData: {
         data: base64Data,
-        mimeType: mimeType || 'application/pdf',
+        mimeType,
       },
     };
 

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { put } from '@vercel/blob';
 
 interface JobNimbusCustomer {
   id: string;
@@ -94,35 +95,26 @@ export default function UploadPage() {
   };
 
   const processDocumentWithGemini = async (fileToProcess: File) => {
-    setExtractionStatus('Processing document with Gemini...');
+    setExtractionStatus('Uploading document...');
 
     try {
-      // Read file as base64
-      const reader = new FileReader();
-      const fileData = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(fileToProcess);
+      // Upload file to Vercel Blob Storage
+      const blob = await put(fileToProcess.name, fileToProcess, {
+        access: 'public',
+        token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN,
       });
 
-      setExtractionStatus('Analyzing insurance document...');
+      setExtractionStatus('Analyzing insurance document with Gemini...');
 
-      // Determine MIME type
-      const mimeType = fileToProcess.type || 'application/pdf';
-
-      // Send to unified Gemini API for OCR + parsing
+      // Send blob URL to API for processing
       const response = await fetch('/api/process-document', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          fileData,
+          blobUrl: blob.url,
           fileName: fileToProcess.name,
-          mimeType,
         }),
       });
 
@@ -159,16 +151,6 @@ export default function UploadPage() {
   const handleRead = async () => {
     if (inputMode === 'file' && !file) {
       setError('Please upload a PDF file');
-      return;
-    }
-
-    // Check file size (Vercel has a 4.5MB request body limit on Hobby plan)
-    // Base64 encoding increases size by ~33%, so limit to 3MB to be safe
-    if (inputMode === 'file' && file && file.size > 3 * 1024 * 1024) {
-      setError(
-        `File size (${(file.size / 1024 / 1024).toFixed(1)}MB) exceeds the 3MB limit. ` +
-        'Please compress your PDF or use the "Paste Insurance Document Text" option instead.'
-      );
       return;
     }
 
